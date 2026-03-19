@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "shop": {
+      "title": "Shop",
+      "description": "Details of the shop owner's business",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "description": "UID of the shop owner" },
+        "name": { "type": "string", "description": "Name of the shop" },
+        "address": { "type": "string", "description": "Physical address" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name"]
+    },
+    "job": {
+      "title": "Job",
+      "description": "A vehicle repair job or sale entry",
+      "type": "object",
+      "properties": {
+        "shopId": { "type": "string", "description": "UID of the shop owner" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "vehicleModel": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "COMPLETED", "CANCELLED"] },
+        "totalAmount": { "type": "number" },
+        "amountPaid": { "type": "number", "description": "Amount paid by the customer" },
+        "parts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" },
+              "addedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["shopId", "customerName", "vehicleNumber", "status", "parts"]
+    }
+  },
+  "firestore": {
+    "/shops/{shopId}": {
+      "schema": "shop",
+      "description": "Shop profile data"
+    },
+    "/jobs/{jobId}": {
+      "schema": "job",
+      "description": "Main job records"
+    }
+  }
+}

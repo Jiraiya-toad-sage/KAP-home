@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: shops
+    // Document ID: userId (uid)
+    // Fields:
+    //   - name: string (required, 1-100 chars)
+    //   - ownerEmail: string (required, valid email)
+    //   - address: string (optional, 0-500 chars)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: jobs
+    // Document ID: auto-generated
+    // Fields:
+    //   - shopId: string (required, matches owner uid)
+    //   - customerName: string (required, 1-100 chars)
+    //   - customerPhone: string (optional)
+    //   - vehicleNumber: string (required, 1-20 chars)
+    //   - vehicleModel: string (optional)
+    //   - status: string (required, enum: ACTIVE, COMPLETED, CANCELLED)
+    //   - totalAmount: number (required, >= 0)
+    //   - amountPaid: number (optional, >= 0)
+    //   - createdAt: timestamp (required)
+    //   - completedAt: timestamp (optional)
+    //   - parts: list (required, list of maps)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "deveshkapoork@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidShop(data) {
+      return data.keys().hasAll(['name', 'ownerEmail', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isValidEmail(data.ownerEmail) &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidJob(data) {
+      return data.keys().hasAll(['shopId', 'customerName', 'vehicleNumber', 'status', 'totalAmount', 'createdAt', 'parts']) &&
+             data.shopId is string && data.shopId == request.auth.uid &&
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100 &&
+             data.vehicleNumber is string && data.vehicleNumber.size() > 0 && data.vehicleNumber.size() <= 20 &&
+             data.status in ['ACTIVE', 'COMPLETED', 'CANCELLED'] &&
+             data.totalAmount is number && data.totalAmount >= 0 &&
+             (!('amountPaid' in data) || (data.amountPaid is number && data.amountPaid >= 0)) &&
+             (!('completedAt' in data) || data.completedAt == null || isValidDateString(data.completedAt)) &&
+             isValidDateString(data.createdAt) &&
+             data.parts is list;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /shops/{shopId} {
+      allow read: if isOwner(shopId) || isAdmin();
+      allow create: if isOwner(shopId) && isValidShop(request.resource.data);
+      allow update: if isOwner(shopId) && isValidShop(request.resource.data);
+    }
+
+    match /jobs/{jobId} {
+      allow read: if (isAuthenticated() && resource.data.shopId == request.auth.uid) || isAdmin();
+      allow create: if isAuthenticated() && isValidJob(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.shopId == request.auth.uid && isValidJob(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.shopId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
